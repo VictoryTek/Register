@@ -51,6 +51,7 @@ import {
   Inventory2 as InventoryIcon,
   ViewList as ViewListIcon,
   ViewModule as ViewModuleIcon,
+  Remove as RemoveIcon,
 } from '@mui/icons-material';
 
 interface InventoryItem {
@@ -219,8 +220,7 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       message: 'Item updated successfully!',
       severity: 'success',
     });
-  };
-  const handleDeleteItem = (itemId: number) => {
+  };  const handleDeleteItem = (itemId: number) => {
     const updatedItems = items.filter(item => item.id !== itemId);
     setItems(updatedItems);
     // Save to localStorage
@@ -229,6 +229,25 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
     setSnackbar({
       open: true,
       message: 'Item deleted successfully!',
+      severity: 'success',
+    });
+  };
+
+  const handleQuantityChange = (itemId: number, change: number) => {
+    const updatedItems = items.map(item => {
+      if (item.id === itemId) {
+        const newQuantity = Math.max(0, item.quantity + change);
+        return { ...item, quantity: newQuantity, lastUpdated: new Date().toISOString().split('T')[0] };
+      }
+      return item;
+    });
+    
+    setItems(updatedItems);
+    localStorage.setItem(`inventory_items_${inventoryId}`, JSON.stringify(updatedItems));
+    
+    setSnackbar({
+      open: true,
+      message: `Quantity ${change > 0 ? 'increased' : 'decreased'} successfully!`,
       severity: 'success',
     });
   };
@@ -619,7 +638,28 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
                         {item.description}
                       </Typography>
                     </TableCell>
-                    <TableCell>{item.quantity}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleQuantityChange(item.id, -1)}
+                          disabled={item.quantity <= 0}
+                          title="Decrease quantity"
+                        >
+                          <RemoveIcon fontSize="small" />
+                        </IconButton>
+                        <Typography variant="body2" sx={{ minWidth: 30, textAlign: 'center' }}>
+                          {item.quantity}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleQuantityChange(item.id, 1)}
+                          title="Increase quantity"
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
                     {customFields.map((field) => (
                       <TableCell key={field.id}>
                         {field.type === 'select' && field.id === 'status' ? (
@@ -708,11 +748,32 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
                   </Box>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     {item.description}
-                  </Typography>
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      <strong>Quantity:</strong> {item.quantity}
-                    </Typography>
+                  </Typography>                  <Box sx={{ mt: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Quantity:</strong>
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleQuantityChange(item.id, -1)}
+                        disabled={item.quantity <= 0}
+                        title="Decrease quantity"
+                        sx={{ p: 0.5 }}
+                      >
+                        <RemoveIcon fontSize="small" />
+                      </IconButton>
+                      <Typography variant="body2" sx={{ minWidth: 30, textAlign: 'center', fontWeight: 'bold' }}>
+                        {item.quantity}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleQuantityChange(item.id, 1)}
+                        title="Increase quantity"
+                        sx={{ p: 0.5 }}
+                      >
+                        <AddIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                     {/* Render custom fields */}
                     {customFields.map((field) => (
                       <Typography variant="body2" color="text.secondary" key={field.id} sx={{ mb: 0.5 }}>
