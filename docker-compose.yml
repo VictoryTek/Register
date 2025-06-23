@@ -1,0 +1,70 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: register_db
+    environment:
+      POSTGRES_USER: register_user
+      POSTGRES_PASSWORD: register_password
+      POSTGRES_DB: register_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - register_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U register_user"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: register_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://register_user:register_password@db:5432/register_db
+      - SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
+      - ENVIRONMENT=development
+      - ALLOWED_ORIGINS=["http://localhost:3000", "http://127.0.0.1:3000"]
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    networks:
+      - register_network
+    restart: unless-stopped
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: register_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - register_network
+    restart: unless-stopped
+volumes:
+  postgres_data:
+
+networks:
+  register_network:
+    driver: bridge
