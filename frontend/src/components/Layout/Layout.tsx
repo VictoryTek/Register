@@ -17,6 +17,7 @@ import {
   MenuItem,
   Avatar,
   Divider,
+  Tooltip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -24,8 +25,11 @@ import {
   MenuBook as CatalogIcon,
   AccountCircle,
   Logout,
+  LightMode,
+  DarkMode,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { useThemeMode } from '../../contexts/ThemeContext';
 
 const drawerWidth = 240;
 
@@ -46,6 +50,7 @@ const Layout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { mode, toggleTheme } = useThemeMode();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -112,8 +117,7 @@ const Layout: React.FC = () => {
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           ml: { sm: `${drawerWidth}px` },
         }}
-      >
-        <Toolbar>          <IconButton
+      >        <Toolbar>          <IconButton
             color="inherit"
             aria-label="open drawer"
             edge="start"
@@ -125,6 +129,15 @@ const Layout: React.FC = () => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Inventory Management
           </Typography>
+          <Tooltip title={`Switch to ${mode === 'light' ? 'dark' : 'light'} mode`}>
+            <IconButton
+              color="inherit"
+              onClick={toggleTheme}
+              sx={{ mr: 1 }}
+            >
+              {mode === 'light' ? <DarkMode /> : <LightMode />}
+            </IconButton>
+          </Tooltip>
           <IconButton
             size="large"
             aria-label="account of current user"

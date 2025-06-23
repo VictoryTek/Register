@@ -12,8 +12,15 @@ import {
   Paper,
   Avatar,
   Grid,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import {
+  LightMode,
+  DarkMode,
+} from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useThemeMode } from '../contexts/ThemeContext';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -21,6 +28,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const { mode, toggleTheme } = useThemeMode();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,7 +49,6 @@ const Login: React.FC = () => {
       setIsLoading(false);
     }
   };
-
   return (
     <Container component="main" maxWidth="xs">
       <Box
@@ -53,6 +60,32 @@ const Login: React.FC = () => {
           alignItems: 'center',
         }}
       >
+        {/* Theme Toggle Button - Fixed position */}
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            zIndex: 1000,
+          }}
+        >
+          <Tooltip title={`Switch to ${mode === 'light' ? 'dark' : 'light'} mode`}>
+            <IconButton
+              onClick={toggleTheme}
+              sx={{
+                bgcolor: 'background.paper',
+                boxShadow: 2,
+                '&:hover': {
+                  bgcolor: 'background.paper',
+                  boxShadow: 4,
+                },
+              }}
+            >
+              {mode === 'light' ? <DarkMode /> : <LightMode />}
+            </IconButton>
+          </Tooltip>
+        </Box>
+
         <Paper
           elevation={3}
           sx={{
@@ -62,7 +95,7 @@ const Login: React.FC = () => {
             alignItems: 'center',
             width: '100%',
           }}
-        >          <Avatar sx={{ m: 1, bgcolor: 'transparent', width: 80, height: 80 }}>
+        ><Avatar sx={{ m: 1, bgcolor: 'transparent', width: 80, height: 80 }}>
             <img 
               src="/logo_icon.png" 
               alt="Register Logo" 

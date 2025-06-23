@@ -2,11 +2,11 @@ FROM node:18-alpine as development
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first (better caching)
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies (this layer will be cached)
+RUN npm ci --prefer-offline --no-audit
 
 # Copy source code
 COPY . .
@@ -22,10 +22,16 @@ FROM node:18-alpine as build
 
 WORKDIR /app
 
+# Copy package files
 COPY package*.json ./
-RUN npm ci --only=production
 
+# Install dependencies for build (faster with --prefer-offline)
+RUN npm ci --prefer-offline --no-audit --only=production
+
+# Copy source code
 COPY . .
+
+# Build the app
 RUN npm run build
 
 # Production stage
