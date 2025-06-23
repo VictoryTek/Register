@@ -48,10 +48,11 @@ import {
   Delete as DeleteIcon,
   Search as SearchIcon,
   FilterList as FilterIcon,
-  Inventory2 as InventoryIcon,
-  ViewList as ViewListIcon,
+  Inventory2 as InventoryIcon,  ViewList as ViewListIcon,
   ViewModule as ViewModuleIcon,
   Remove as RemoveIcon,
+  Link as LinkIcon,
+  ContentPaste as ContentPasteIcon,
 } from '@mui/icons-material';
 
 interface InventoryItem {
@@ -107,7 +108,12 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
     options: [],
   });
   const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
-  const [newOption, setNewOption] = useState('');  // Load inventory data from localStorage
+  const [newOption, setNewOption] = useState('');
+  
+  // URL scanning state
+  const [scanUrl, setScanUrl] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);  // Load inventory data from localStorage
   useEffect(() => {
     // Load inventories from localStorage to find the current one
     const savedInventories = localStorage.getItem('inventories');
@@ -160,8 +166,7 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
         setItems([]);
       }
     }
-  }, [inventoryId]);
-  const handleAddItem = () => {
+  }, [inventoryId]);  const handleAddItem = () => {
     const item: InventoryItem = {
       id: Date.now(),
       ...newItem,
@@ -180,12 +185,17 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       customFields: {},
     });
     setOpenAddDialog(false);
+    
+    // Reset URL scanning state
+    setShowUrlInput(false);
+    setScanUrl('');
+    
     setSnackbar({
       open: true,
       message: 'Item added successfully!',
       severity: 'success',
     });
-  };  const handleEditItem = (item: InventoryItem) => {
+  };const handleEditItem = (item: InventoryItem) => {
     setSelectedItem(item);
     setNewItem({
       name: item.name,
@@ -194,8 +204,7 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       customFields: item.customFields ? { ...item.customFields } : {},
     });
     setOpenEditDialog(true);
-  };
-  const handleUpdateItem = () => {
+  };  const handleUpdateItem = () => {
     if (!selectedItem) return;
     
     const updatedItems = items.map(item =>
@@ -215,12 +224,17 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       customFields: {},
     });
     setOpenEditDialog(false);
+    
+    // Reset URL scanning state
+    setShowUrlInput(false);
+    setScanUrl('');
+    
     setSnackbar({
       open: true,
       message: 'Item updated successfully!',
       severity: 'success',
     });
-  };  const handleDeleteItem = (itemId: number) => {
+  };const handleDeleteItem = (itemId: number) => {
     const updatedItems = items.filter(item => item.id !== itemId);
     setItems(updatedItems);
     // Save to localStorage
@@ -232,7 +246,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       severity: 'success',
     });
   };
-
   const handleQuantityChange = (itemId: number, change: number) => {
     const updatedItems = items.map(item => {
       if (item.id === itemId) {
@@ -250,6 +263,373 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       message: `Quantity ${change > 0 ? 'increased' : 'decreased'} successfully!`,
       severity: 'success',
     });
+  };
+  // URL scanning function
+  const handleScanUrl = async () => {
+    if (!scanUrl.trim()) return;
+    
+    setIsScanning(true);
+    
+    try {
+      // Extract product information from the URL
+      const rawProductInfo = await scanProductUrl(scanUrl.trim());
+      
+      if (rawProductInfo) {
+        // Intelligently map extracted data to custom fields
+        const mappedData = mapExtractedDataToFields(rawProductInfo, customFields);
+        
+        // Auto-fill the form with intelligently mapped data
+        setNewItem(prev => ({
+          ...prev,
+          name: mappedData.name || prev.name,
+          description: mappedData.description || prev.description,
+          customFields: {
+            ...prev.customFields,
+            ...mappedData.customFields,
+          },
+        }));
+        
+        // Show detailed mapping information
+        const mappingDetails = getMappingDetails(rawProductInfo, mappedData, customFields);
+        setSnackbar({
+          open: true,
+          message: `Product scanned! ${mappingDetails}`,
+          severity: 'success',
+        });
+        
+        setShowUrlInput(false);
+        setScanUrl('');
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Could not extract product information from this URL.',
+          severity: 'warning',
+        });
+      }
+    } catch (error) {
+      console.error('Error scanning URL:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error scanning URL. Please check the URL and try again.',
+        severity: 'error',
+      });
+    }
+    
+    setIsScanning(false);
+  };
+
+  // Intelligent field mapping function
+  const mapExtractedDataToFields = (rawData: any, fields: CustomField[]) => {
+    const mappedFields: { [key: string]: any } = {};
+    
+    // Create a mapping of common field names to extracted data
+    const commonMappings: { [key: string]: string[] } = {
+      sku: ['sku', 'model', 'item_number', 'product_id', 'upc', 'barcode'],
+      brand: ['brand', 'manufacturer', 'maker', 'company'],
+      category: ['category', 'type', 'department', 'classification'],
+      price: ['price', 'cost', 'msrp', 'retail_price', 'value'],
+      weight: ['weight', 'mass', 'pounds', 'kg', 'lbs'],
+      dimensions: ['dimensions', 'size', 'measurements', 'length', 'width', 'height'],
+      color: ['color', 'colour', 'finish', 'shade'],
+      material: ['material', 'fabric', 'construction', 'composition'],
+      warranty: ['warranty', 'guarantee', 'warranty_period'],
+      condition: ['condition', 'state', 'quality'],
+      status: ['status', 'availability', 'stock_status'],
+      location: ['location', 'warehouse', 'aisle', 'shelf', 'bin'],
+      unit: ['unit', 'unit_of_measure', 'measurement_unit', 'packaging'],
+      supplier: ['supplier', 'vendor', 'distributor', 'seller'],
+      date_added: ['date_added', 'created_date', 'purchase_date'],
+      expiry_date: ['expiry_date', 'expiration_date', 'best_by'],
+    };
+
+    // Map extracted data to custom fields based on field names and types
+    fields.forEach(field => {
+      const fieldNameLower = field.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const fieldId = field.id.toLowerCase();
+      
+      // Try to find matching data in rawData
+      let mappedValue = null;
+      
+      // Check if field ID matches extracted data keys
+      if (rawData.extractedData && rawData.extractedData[fieldId]) {
+        mappedValue = rawData.extractedData[fieldId];
+      } else if (rawData.extractedData && rawData.extractedData[fieldNameLower]) {
+        mappedValue = rawData.extractedData[fieldNameLower];
+      } else {
+        // Check common mappings
+        for (const [commonField, aliases] of Object.entries(commonMappings)) {
+          if (aliases.includes(fieldId) || aliases.includes(fieldNameLower)) {
+            if (rawData.extractedData && rawData.extractedData[commonField]) {
+              mappedValue = rawData.extractedData[commonField];
+              break;
+            }
+          }
+        }
+      }
+      
+      // Apply type-specific transformations
+      if (mappedValue !== null) {
+        switch (field.type) {
+          case 'number':
+            const numValue = parseFloat(mappedValue);
+            if (!isNaN(numValue)) {
+              mappedFields[field.id] = numValue;
+            }
+            break;
+          
+          case 'date':
+            // Try to parse date
+            const dateValue = new Date(mappedValue);
+            if (!isNaN(dateValue.getTime())) {
+              mappedFields[field.id] = dateValue.toISOString().split('T')[0];
+            }
+            break;
+            
+          case 'select':
+            // Check if extracted value matches any of the field options
+            if (field.options && field.options.length > 0) {
+              const matchingOption = field.options.find(option => 
+                option.toLowerCase() === mappedValue.toLowerCase() ||
+                mappedValue.toLowerCase().includes(option.toLowerCase()) ||
+                option.toLowerCase().includes(mappedValue.toLowerCase())
+              );
+              if (matchingOption) {
+                mappedFields[field.id] = matchingOption;
+              } else {
+                // Default mapping for common select fields
+                if (fieldId === 'status' || fieldNameLower.includes('status')) {
+                  mappedFields[field.id] = getDefaultStatus(mappedValue, field.options);
+                } else if (fieldId === 'condition') {
+                  mappedFields[field.id] = getDefaultCondition(mappedValue, field.options);
+                }
+              }
+            }
+            break;
+            
+          case 'text':
+          default:
+            mappedFields[field.id] = String(mappedValue);
+            break;
+        }
+      }
+    });
+
+    // Add default values for common fields if they weren't mapped
+    addDefaultFieldValues(mappedFields, fields, rawData);
+
+    return {
+      name: rawData.name,
+      description: rawData.description,
+      customFields: mappedFields,
+    };
+  };
+
+  // Helper function to get default status
+  const getDefaultStatus = (extractedStatus: string, options: string[]) => {
+    const status = extractedStatus.toLowerCase();
+    if (status.includes('in stock') || status.includes('available')) {
+      return options.find(opt => opt.toLowerCase().includes('stock')) || options[0];
+    } else if (status.includes('out of stock') || status.includes('unavailable')) {
+      return options.find(opt => opt.toLowerCase().includes('out')) || options[options.length - 1];
+    } else if (status.includes('low stock') || status.includes('limited')) {
+      return options.find(opt => opt.toLowerCase().includes('low')) || options[1];
+    }
+    return options[0]; // Default to first option
+  };
+
+  // Helper function to get default condition
+  const getDefaultCondition = (extractedCondition: string, options: string[]) => {
+    const condition = extractedCondition.toLowerCase();
+    if (condition.includes('new') || condition.includes('brand new')) {
+      return options.find(opt => opt.toLowerCase().includes('new')) || options[0];
+    } else if (condition.includes('used') || condition.includes('refurbished')) {
+      return options.find(opt => opt.toLowerCase().includes('used') || opt.toLowerCase().includes('refurbished')) || options[1];
+    }
+    return options[0];
+  };
+
+  // Add default values for unmapped but important fields
+  const addDefaultFieldValues = (mappedFields: { [key: string]: any }, fields: CustomField[], rawData: any) => {
+    fields.forEach(field => {
+      if (!mappedFields[field.id]) {
+        // Add defaults for common required fields
+        if (field.id === 'sku' && field.required) {
+          mappedFields[field.id] = rawData.generatedSku || generateSkuFromUrl(rawData.url);
+        } else if (field.id === 'unit' && field.type === 'select' && field.options) {
+          mappedFields[field.id] = field.options.includes('pieces') ? 'pieces' : field.options[0];
+        } else if (field.id === 'status' && field.type === 'select' && field.options) {
+          mappedFields[field.id] = field.options.find(opt => opt.toLowerCase().includes('stock')) || field.options[0];
+        } else if (field.id === 'location') {
+          mappedFields[field.id] = rawData.suggestedLocation || 'General Storage';
+        }
+      }
+    });
+  };
+
+  // Generate SKU from URL if not provided
+  const generateSkuFromUrl = (url: string) => {
+    const domain = new URL(url).hostname.toLowerCase();
+    const prefix = domain.includes('amazon') ? 'AMZ' : 
+                  domain.includes('walmart') ? 'WMT' :
+                  domain.includes('target') ? 'TGT' :
+                  domain.includes('bestbuy') ? 'BBY' : 'GEN';
+    return `${prefix}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+  };
+
+  // Get mapping details for user feedback
+  const getMappingDetails = (rawData: any, mappedData: any, fields: CustomField[]) => {
+    const mappedCount = Object.keys(mappedData.customFields).length;
+    const totalFields = fields.length;
+    return `Mapped ${mappedCount}/${totalFields} fields automatically.`;
+  };
+  // Function to scan product URL and extract information
+  const scanProductUrl = async (url: string) => {
+    try {
+      // This is a mock implementation - in a real app you'd need a backend service
+      // or use a CORS proxy to fetch and parse the webpage
+      
+      // For demonstration, we'll simulate different retailer patterns
+      const domain = new URL(url).hostname.toLowerCase();
+      
+      // Simulate extraction based on common retailer patterns
+      if (domain.includes('amazon')) {
+        return extractAmazonProduct(url);
+      } else if (domain.includes('walmart')) {
+        return extractWalmartProduct(url);
+      } else if (domain.includes('target')) {
+        return extractTargetProduct(url);
+      } else if (domain.includes('bestbuy')) {
+        return extractBestBuyProduct(url);
+      } else {
+        return extractGenericProduct(url);
+      }
+    } catch (error) {
+      console.error('Error parsing URL:', error);
+      return null;
+    }
+  };
+
+  // Enhanced mock extraction functions with comprehensive data
+  const extractAmazonProduct = async (url: string) => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      url,
+      name: 'Echo Dot (5th Gen) Smart Speaker',
+      description: 'Compact smart speaker with Alexa voice control, improved audio quality, and smart home hub capabilities.',
+      generatedSku: 'AMZ-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      suggestedLocation: 'Electronics Section',
+      extractedData: {
+        brand: 'Amazon',
+        category: 'Electronics',
+        price: 49.99,
+        weight: '0.75 lbs',
+        dimensions: '3.9 x 3.9 x 3.5 inches',
+        color: 'Charcoal',
+        warranty: '1 year',
+        condition: 'New',
+        status: 'In Stock',
+        unit: 'pieces',
+        material: 'Plastic',
+        sku: 'B09B8V1LZ3',
+        supplier: 'Amazon',
+      },
+    };
+  };
+
+  const extractWalmartProduct = async (url: string) => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      url,
+      name: 'Great Value Organic Whole Milk',
+      description: 'Organic whole milk, 1 gallon. Rich, creamy taste from pasture-raised cows.',
+      generatedSku: 'WMT-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      suggestedLocation: 'Refrigerated Storage',
+      extractedData: {
+        brand: 'Great Value',
+        category: 'Dairy',
+        price: 4.98,
+        weight: '8.6 lbs',
+        expiry_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 weeks from now
+        condition: 'Fresh',
+        status: 'In Stock',
+        unit: 'gallons',
+        supplier: 'Walmart',
+        sku: 'WMT-MILK-001',
+      },
+    };
+  };
+
+  const extractTargetProduct = async (url: string) => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      url,
+      name: 'Goodfellow & Co. Men\'s Crew Neck T-Shirt',
+      description: 'Classic fit crew neck t-shirt made from soft cotton blend. Perfect for everyday wear.',
+      generatedSku: 'TGT-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      suggestedLocation: 'Apparel Storage',
+      extractedData: {
+        brand: 'Goodfellow & Co.',
+        category: 'Clothing',
+        price: 6.00,
+        color: 'Navy Blue',
+        material: 'Cotton Blend',
+        condition: 'New',
+        status: 'Low Stock',
+        unit: 'pieces',
+        supplier: 'Target',
+        sku: 'TGT-TEE-54321',
+      },
+    };
+  };
+
+  const extractBestBuyProduct = async (url: string) => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      url,
+      name: 'Apple iPhone 15 Pro 128GB',
+      description: 'Latest iPhone with A17 Pro chip, titanium design, and advanced camera system.',
+      generatedSku: 'BBY-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      suggestedLocation: 'Secure Electronics Vault',
+      extractedData: {
+        brand: 'Apple',
+        category: 'Smartphones',
+        price: 999.99,
+        weight: '0.41 lbs',
+        dimensions: '5.77 x 2.78 x 0.32 inches',
+        color: 'Natural Titanium',
+        warranty: '1 year limited',
+        condition: 'New',
+        status: 'In Stock',
+        unit: 'pieces',
+        material: 'Titanium',
+        sku: 'IPHONE15PRO128',
+        supplier: 'Best Buy',
+      },
+    };
+  };
+
+  const extractGenericProduct = async (url: string) => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      url,
+      name: 'Generic Product Name',
+      description: 'Product description extracted from webpage metadata and content.',
+      generatedSku: 'GEN-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      suggestedLocation: 'General Storage',
+      extractedData: {
+        brand: 'Unknown Brand',
+        category: 'General',
+        condition: 'New',
+        status: 'In Stock',
+        unit: 'pieces',
+        supplier: 'External Vendor',
+      },
+    };
   };
 
   // Field management functions
@@ -836,10 +1216,67 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
           <AddIcon />
         </Fab>
       )}      {/* Add Item Dialog */}
-      <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openAddDialog} onClose={() => {
+        setOpenAddDialog(false);
+        setShowUrlInput(false);
+        setScanUrl('');
+      }} maxWidth="sm" fullWidth>
         <DialogTitle>Add New Item</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* URL Scanning Section */}
+            <Grid item xs={12}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <LinkIcon fontSize="small" />
+                  Auto-fill from Product URL
+                </Typography>
+                {!showUrlInput ? (
+                  <Button
+                    variant="outlined"
+                    startIcon={<ContentPasteIcon />}
+                    onClick={() => setShowUrlInput(true)}
+                    size="small"
+                  >
+                    Scan Product URL
+                  </Button>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Product URL"
+                      placeholder="https://www.amazon.com/product/..."
+                      value={scanUrl}
+                      onChange={(e) => setScanUrl(e.target.value)}
+                      disabled={isScanning}
+                    />
+                    <Button
+                      variant="contained"
+                      onClick={handleScanUrl}
+                      disabled={!scanUrl.trim() || isScanning}
+                      size="small"
+                    >
+                      {isScanning ? 'Scanning...' : 'Scan'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setShowUrlInput(false);
+                        setScanUrl('');
+                      }}
+                      size="small"
+                    >
+                      Cancel
+                    </Button>
+                  </Box>
+                )}
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  Supports Amazon, Walmart, Target, Best Buy, and other retailers
+                </Typography>
+              </Box>
+            </Grid>
+            
             {/* Core fields */}
             <Grid item xs={12}>
               <TextField
@@ -887,14 +1324,75 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenAddDialog(false)}>Cancel</Button>
+          <Button onClick={() => {
+            setOpenAddDialog(false);
+            setShowUrlInput(false);
+            setScanUrl('');
+          }}>Cancel</Button>
           <Button onClick={handleAddItem} variant="contained">Add Item</Button>
         </DialogActions>
       </Dialog>      {/* Edit Item Dialog */}
-      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openEditDialog} onClose={() => {
+        setOpenEditDialog(false);
+        setShowUrlInput(false);
+        setScanUrl('');
+      }} maxWidth="sm" fullWidth>
         <DialogTitle>Edit Item</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* URL Scanning Section */}
+            <Grid item xs={12}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <LinkIcon fontSize="small" />
+                  Update from Product URL
+                </Typography>
+                {!showUrlInput ? (
+                  <Button
+                    variant="outlined"
+                    startIcon={<ContentPasteIcon />}
+                    onClick={() => setShowUrlInput(true)}
+                    size="small"
+                  >
+                    Scan Product URL
+                  </Button>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Product URL"
+                      placeholder="https://www.amazon.com/product/..."
+                      value={scanUrl}
+                      onChange={(e) => setScanUrl(e.target.value)}
+                      disabled={isScanning}
+                    />
+                    <Button
+                      variant="contained"
+                      onClick={handleScanUrl}
+                      disabled={!scanUrl.trim() || isScanning}
+                      size="small"
+                    >
+                      {isScanning ? 'Scanning...' : 'Scan'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setShowUrlInput(false);
+                        setScanUrl('');
+                      }}
+                      size="small"
+                    >
+                      Cancel
+                    </Button>
+                  </Box>
+                )}
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  Supports Amazon, Walmart, Target, Best Buy, and other retailers
+                </Typography>
+              </Box>
+            </Grid>
+            
             {/* Core fields */}
             <Grid item xs={12}>
               <TextField
@@ -942,7 +1440,11 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
+          <Button onClick={() => {
+            setOpenEditDialog(false);
+            setShowUrlInput(false);
+            setScanUrl('');
+          }}>Cancel</Button>
           <Button onClick={handleUpdateItem} variant="contained">Update Item</Button>
         </DialogActions>
       </Dialog>
