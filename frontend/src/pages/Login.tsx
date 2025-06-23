@@ -69,8 +69,7 @@ const Login: React.FC = () => {
               style={{ 
                 width: '70px',
                 height: '70px',
-                objectFit: 'contain',
-                filter: 'brightness(0) saturate(100%) invert(22%) sepia(99%) saturate(1638%) hue-rotate(206deg) brightness(98%) contrast(89%)'
+                objectFit: 'contain'
               }}
             />
           </Avatar>
