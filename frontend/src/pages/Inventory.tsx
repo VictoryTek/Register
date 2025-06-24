@@ -340,15 +340,13 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       supplier: ['supplier', 'vendor', 'distributor', 'seller'],
       date_added: ['date_added', 'created_date', 'purchase_date'],
       expiry_date: ['expiry_date', 'expiration_date', 'best_by'],
-    };
-
-    // Map extracted data to custom fields based on field names and types
+    };    // Map extracted data to custom fields based on field names and types
     fields.forEach(field => {
       const fieldNameLower = field.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const fieldId = field.id.toLowerCase();
       
       // Try to find matching data in rawData
-      let mappedValue = null;
+      let mappedValue: any = null;
       
       // Check if field ID matches extracted data keys
       if (rawData.extractedData && rawData.extractedData[fieldId]) {
@@ -368,10 +366,10 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       }
       
       // Apply type-specific transformations
-      if (mappedValue !== null) {
+      if (mappedValue !== null && mappedValue !== undefined) {
         switch (field.type) {
           case 'number':
-            const numValue = parseFloat(mappedValue);
+            const numValue = parseFloat(String(mappedValue));
             if (!isNaN(numValue)) {
               mappedFields[field.id] = numValue;
             }
@@ -379,7 +377,7 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
           
           case 'date':
             // Try to parse date
-            const dateValue = new Date(mappedValue);
+            const dateValue = new Date(String(mappedValue));
             if (!isNaN(dateValue.getTime())) {
               mappedFields[field.id] = dateValue.toISOString().split('T')[0];
             }
@@ -388,19 +386,20 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
           case 'select':
             // Check if extracted value matches any of the field options
             if (field.options && field.options.length > 0) {
+              const mappedValueStr = String(mappedValue);
               const matchingOption = field.options.find(option => 
-                option.toLowerCase() === mappedValue.toLowerCase() ||
-                mappedValue.toLowerCase().includes(option.toLowerCase()) ||
-                option.toLowerCase().includes(mappedValue.toLowerCase())
+                option.toLowerCase() === mappedValueStr.toLowerCase() ||
+                mappedValueStr.toLowerCase().includes(option.toLowerCase()) ||
+                option.toLowerCase().includes(mappedValueStr.toLowerCase())
               );
               if (matchingOption) {
                 mappedFields[field.id] = matchingOption;
               } else {
                 // Default mapping for common select fields
                 if (fieldId === 'status' || fieldNameLower.includes('status')) {
-                  mappedFields[field.id] = getDefaultStatus(mappedValue, field.options);
+                  mappedFields[field.id] = getDefaultStatus(mappedValueStr, field.options);
                 } else if (fieldId === 'condition') {
-                  mappedFields[field.id] = getDefaultCondition(mappedValue, field.options);
+                  mappedFields[field.id] = getDefaultCondition(mappedValueStr, field.options);
                 }
               }
             }

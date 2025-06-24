@@ -54,6 +54,8 @@ services:
     environment:
       - REACT_APP_API_URL=http://localhost:8000
       - CHOKIDAR_USEPOLLING=true
+      - HOST=0.0.0.0
+      - PORT=3000
     depends_on:
       - backend
     volumes:
@@ -62,6 +64,7 @@ services:
     networks:
       - register_network
     restart: unless-stopped
+
 volumes:
   postgres_data:
 

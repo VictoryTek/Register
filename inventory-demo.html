@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management System</title>
+    <!-- Material-UI CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .back-btn {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .back-btn:hover {
+            background: #1565c0;
+        }
+        
+        .inventory-icon {
+            font-size: 32px;
+            color: #1976d2;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .stat-number.primary { color: #1976d2; }
+        .stat-number.success { color: #4caf50; }
+        .stat-number.warning { color: #ff9800; }
+        .stat-number.error { color: #f44336; }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .action-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #f5f5f5;
+        }
+        
+        .btn.primary {
+            background: #1976d2;
+            color: white;
+            border-color: #1976d2;
+        }
+        
+        .btn.primary:hover {
+            background: #1565c0;
+        }
+        
+        .spacer {
+            flex-grow: 1;
+        }
+        
+        .items-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .items-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .item-card {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.2s;
+        }
+        
+        .item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .item-name {
+            font-weight: 500;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+        
+        .status-chip {
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: white;
+        }
+        
+        .status-chip.success { background: #4caf50; }
+        .status-chip.warning { background: #ff9800; }
+        .status-chip.error { background: #f44336; }
+        
+        .item-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+        
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .quantity-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #666;
+        }
+        
+        .quantity-btn:hover {
+            background: #f5f5f5;
+        }
+        
+        .quantity-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .quantity-value {
+            font-weight: 500;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        .custom-fields {
+            margin-bottom: 15px;
+        }
+        
+        .custom-field {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .field-label {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .field-value {
+            color: #666;
+        }
+        
+        .item-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .icon-btn:hover {
+            background: #f5f5f5;
+        }
+        
+        .icon-btn.edit {
+            color: #1976d2;
+        }
+        
+        .icon-btn.delete {
+            color: #f44336;
+        }
+        
+        .url-scanner {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .url-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        .scan-result {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            border: 1px solid #ddd;
+        }
+        
+        .fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+        }
+        
+        .fab:hover {
+            background: #1565c0;
+            transform: scale(1.1);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #1976d2;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+        
+        .material-icons {
+            font-size: 20px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-icon {
+            font-size: 64px;
+            color: #ddd;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <button class="back-btn" onclick="goBack()">
+                <span class="material-icons">arrow_back</span>
+            </button>
+            <span class="material-icons inventory-icon">inventory_2</span>
+            <h1>Office Supplies - Items</h1>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number primary" id="totalItems">8</div>
+                <div class="stat-label">Total Item Types</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number success" id="totalQuantity">423</div>
+                <div class="stat-label">Total Quantity</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number warning" id="lowStockItems">2</div>
+                <div class="stat-label">Low Stock Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number error" id="outOfStockItems">1</div>
+                <div class="stat-label">Out of Stock</div>
+            </div>
+        </div>
+
+        <!-- URL Scanner -->
+        <div class="url-scanner">
+            <h3 style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                <span class="material-icons">link</span>
+                Product URL Scanner
+            </h3>
+            <input type="text" class="url-input" id="scanUrl" placeholder="https://www.amazon.com/product/...">
+            <button class="btn primary" onclick="scanProduct()">
+                <span class="material-icons">search</span>
+                Scan Product
+            </button>
+            <div class="scan-result" id="scanResult" style="display: none;">
+                <!-- Scan results will appear here -->
+            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <button class="btn">
+                <span class="material-icons">search</span>
+                Search
+            </button>
+            <button class="btn">
+                <span class="material-icons">filter_list</span>
+                Filter
+            </button>
+            <button class="btn" onclick="openFieldsModal()">
+                <span class="material-icons">edit</span>
+                Manage Fields
+            </button>
+            <div class="spacer"></div>
+            <button class="btn primary" id="listViewBtn" onclick="switchView('list')">
+                <span class="material-icons">view_list</span>
+                List View
+            </button>
+            <button class="btn" id="gridViewBtn" onclick="switchView('grid')">
+                <span class="material-icons">view_module</span>
+                Grid View
+            </button>
+        </div>
+
+        <!-- Items Container -->
+        <div class="items-container">
+            <div class="items-header">
+                <h2>Inventory Items</h2>
+            </div>
+            <div class="items-grid" id="itemsGrid">
+                <!-- Items will be populated here -->
+            </div>
+        </div>
+
+        <!-- Add Item FAB -->
+        <button class="fab" onclick="openAddModal()">
+            <span class="material-icons">add</span>
+        </button>
+    </div>
+
+    <!-- Add/Edit Item Modal -->
+    <div class="modal" id="itemModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Item</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="itemForm">
+                <div class="form-group">
+                    <label class="form-label">Item Name</label>
+                    <input type="text" class="form-input" id="itemName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-input" id="itemDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-input" id="itemQuantity" required min="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">SKU</label>
+                    <input type="text" class="form-input" id="itemSku">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Brand</label>
+                    <input type="text" class="form-input" id="itemBrand">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-input" id="itemCategory">
+                        <option value="">Select Category</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Office Supplies">Office Supplies</option>
+                        <option value="Furniture">Furniture</option>
+                        <option value="Consumables">Consumables</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-input" id="itemStatus">
+                        <option value="In Stock">In Stock</option>
+                        <option value="Low Stock">Low Stock</option>
+                        <option value="Out of Stock">Out of Stock</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn primary">Save Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Manage Fields Modal -->
+    <div class="modal" id="fieldsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Manage Custom Fields</h2>
+                <button class="close-btn" onclick="closeFieldsModal()">&times;</button>
+            </div>
+            <p>Custom field management is available in the full React application. This demo shows the core functionality.</p>
+            <div class="form-actions">
+                <button type="button" class="btn primary" onclick="closeFieldsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample data
+        let items = [
+            {
+                id: 1,
+                name: 'Blue Pens',
+                description: 'Standard blue ballpoint pens',
+                quantity: 150,
+                sku: 'PEN-001',
+                brand: 'Bic',
+                category: 'Office Supplies',
+                status: 'In Stock',
+                lastUpdated: '2024-01-15'
+            },
+            {
+                id: 2,
+                name: 'A4 Paper',
+                description: 'White A4 printer paper',
+                quantity: 25,
+                sku: 'PAP-001',
+                brand: 'HP',
+                category: 'Office Supplies',
+                status: 'Low Stock',
+                lastUpdated: '2024-01-14'
+            },
+            {
+                id: 3,
+                name: 'Wireless Mouse',
+                description: 'Ergonomic wireless mouse',
+                quantity: 12,
+                sku: 'MOU-001',
+                brand: 'Logitech',
+                category: 'Electronics',
+                status: 'In Stock',
+                lastUpdated: '2024-01-13'
+            },
+            {
+                id: 4,
+                name: 'Desk Lamp',
+                description: 'LED adjustable desk lamp',
+                quantity: 0,
+                sku: 'LAM-001',
+                brand: 'IKEA',
+                category: 'Furniture',
+                status: 'Out of Stock',
+                lastUpdated: '2024-01-12'
+            },
+            {
+                id: 5,
+                name: 'Coffee Pods',
+                description: 'Premium coffee pods',
+                quantity: 84,
+                sku: 'COF-001',
+                brand: 'Keurig',
+                category: 'Consumables',
+                status: 'In Stock',
+                lastUpdated: '2024-01-11'
+            },
+            {
+                id: 6,
+                name: 'Staplers',
+                description: 'Heavy duty office staplers',
+                quantity: 8,
+                sku: 'STA-001',
+                brand: 'Swingline',
+                category: 'Office Supplies',
+                status: 'Low Stock',
+                lastUpdated: '2024-01-10'
+            },
+            {
+                id: 7,
+                name: 'Monitor',
+                description: '24-inch LED monitor',
+                quantity: 6,
+                sku: 'MON-001',
+                brand: 'Dell',
+                category: 'Electronics',
+                status: 'In Stock',
+                lastUpdated: '2024-01-09'
+            },
+            {
+                id: 8,
+                name: 'Office Chair',
+                description: 'Ergonomic office chair',
+                quantity: 15,
+                sku: 'CHA-001',
+                brand: 'Steelcase',
+                category: 'Furniture',
+                status: 'In Stock',
+                lastUpdated: '2024-01-08'
+            }
+        ];
+
+        let currentView = 'grid';
+        let editingItem = null;
+
+        function renderItems() {
+            const container = document.getElementById('itemsGrid');
+            
+            if (items.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="material-icons empty-icon">inventory_2</div>
+                        <h3>No items found</h3>
+                        <p>Click the + button to add your first item</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="item-card">
+                    <div class="item-header">
+                        <div>
+                            <div class="item-name">${item.name}</div>
+                        </div>
+                        <div class="status-chip ${getStatusClass(item.status)}">${item.status}</div>
+                    </div>
+                    <div class="item-description">${item.description}</div>
+                    
+                    <div class="quantity-control">
+                        <span style="font-weight: 500;">Quantity:</span>
+                        <button class="quantity-btn" onclick="changeQuantity(${item.id}, -1)" ${item.quantity <= 0 ? 'disabled' : ''}>
+                            <span class="material-icons">remove</span>
+                        </button>
+                        <span class="quantity-value">${item.quantity}</span>
+                        <button class="quantity-btn" onclick="changeQuantity(${item.id}, 1)">
+                            <span class="material-icons">add</span>
+                        </button>
+                    </div>
+
+                    <div class="custom-fields">
+                        <div class="custom-field">
+                            <span class="field-label">SKU:</span>
+                            <span class="field-value">${item.sku || 'N/A'}</span>
+                        </div>
+                        <div class="custom-field">
+                            <span class="field-label">Brand:</span>
+                            <span class="field-value">${item.brand || 'N/A'}</span>
+                        </div>
+                        <div class="custom-field">
+                            <span class="field-label">Category:</span>
+                            <span class="field-value">${item.category || 'N/A'}</span>
+                        </div>
+                        <div class="custom-field">
+                            <span class="field-label">Updated:</span>
+                            <span class="field-value">${item.lastUpdated}</span>
+                        </div>
+                    </div>
+
+                    <div class="item-actions">
+                        <button class="icon-btn edit" onclick="editItem(${item.id})" title="Edit Item">
+                            <span class="material-icons">edit</span>
+                        </button>
+                        <button class="icon-btn delete" onclick="deleteItem(${item.id})" title="Delete Item">
+                            <span class="material-icons">delete</span>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            updateStats();
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'In Stock': return 'success';
+                case 'Low Stock': return 'warning';
+                case 'Out of Stock': return 'error';
+                default: return 'success';
+            }
+        }
+
+        function updateStats() {
+            const totalItems = items.length;
+            const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+            const lowStockItems = items.filter(item => item.status === 'Low Stock').length;
+            const outOfStockItems = items.filter(item => item.status === 'Out of Stock').length;
+
+            document.getElementById('totalItems').textContent = totalItems;
+            document.getElementById('totalQuantity').textContent = totalQuantity;
+            document.getElementById('lowStockItems').textContent = lowStockItems;
+            document.getElementById('outOfStockItems').textContent = outOfStockItems;
+        }
+
+        function changeQuantity(id, change) {
+            const item = items.find(i => i.id === id);
+            if (item) {
+                item.quantity = Math.max(0, item.quantity + change);
+                item.lastUpdated = new Date().toISOString().split('T')[0];
+                renderItems();
+            }
+        }
+
+        function deleteItem(id) {
+            if (confirm('Are you sure you want to delete this item?')) {
+                items = items.filter(i => i.id !== id);
+                renderItems();
+            }
+        }
+
+        function editItem(id) {
+            editingItem = items.find(i => i.id === id);
+            if (editingItem) {
+                document.getElementById('modalTitle').textContent = 'Edit Item';
+                document.getElementById('itemName').value = editingItem.name;
+                document.getElementById('itemDescription').value = editingItem.description;
+                document.getElementById('itemQuantity').value = editingItem.quantity;
+                document.getElementById('itemSku').value = editingItem.sku || '';
+                document.getElementById('itemBrand').value = editingItem.brand || '';
+                document.getElementById('itemCategory').value = editingItem.category || '';
+                document.getElementById('itemStatus').value = editingItem.status;
+                openModal();
+            }
+        }
+
+        function switchView(view) {
+            currentView = view;
+            const listBtn = document.getElementById('listViewBtn');
+            const gridBtn = document.getElementById('gridViewBtn');
+            
+            if (view === 'list') {
+                listBtn.className = 'btn primary';
+                gridBtn.className = 'btn';
+                // In a full implementation, this would change the layout
+                alert('List view would show items in a table format. This demo uses grid view.');
+            } else {
+                listBtn.className = 'btn';
+                gridBtn.className = 'btn primary';
+            }
+        }
+
+        function openAddModal() {
+            editingItem = null;
+            document.getElementById('modalTitle').textContent = 'Add New Item';
+            document.getElementById('itemForm').reset();
+            document.getElementById('itemStatus').value = 'In Stock';
+            openModal();
+        }
+
+        function openModal() {
+            document.getElementById('itemModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('itemModal').classList.remove('show');
+        }
+
+        function openFieldsModal() {
+            document.getElementById('fieldsModal').classList.add('show');
+        }
+
+        function closeFieldsModal() {
+            document.getElementById('fieldsModal').classList.remove('show');
+        }
+
+        function goBack() {
+            alert('This would navigate back to the inventory list in the full application.');
+        }
+
+        function scanProduct() {
+            const url = document.getElementById('scanUrl').value.trim();
+            const resultDiv = document.getElementById('scanResult');
+            
+            if (!url) {
+                alert('Please enter a product URL');
+                return;
+            }
+
+            // Simulate scanning
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p>Scanning product...</p>';
+            
+            setTimeout(() => {
+                const domain = new URL(url).hostname.toLowerCase();
+                let productData = {};
+                
+                if (domain.includes('amazon')) {
+                    productData = {
+                        name: 'Echo Dot (5th Gen) Smart Speaker',
+                        description: 'Compact smart speaker with Alexa voice control',
+                        sku: 'AMZ-B09B8V1LZ3',
+                        brand: 'Amazon',
+                        category: 'Electronics'
+                    };
+                } else if (domain.includes('walmart')) {
+                    productData = {
+                        name: 'Great Value Organic Whole Milk',
+                        description: 'Organic whole milk, 1 gallon',
+                        sku: 'WMT-MILK-001',
+                        brand: 'Great Value',
+                        category: 'Consumables'
+                    };
+                } else {
+                    productData = {
+                        name: 'Generic Product',
+                        description: 'Product extracted from URL',
+                        sku: 'GEN-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+                        brand: 'Unknown',
+                        category: 'General'
+                    };
+                }
+
+                resultDiv.innerHTML = `
+                    <h4>✅ Product Scanned Successfully!</h4>
+                    <p><strong>Name:</strong> ${productData.name}</p>
+                    <p><strong>Description:</strong> ${productData.description}</p>
+                    <p><strong>SKU:</strong> ${productData.sku}</p>
+                    <p><strong>Brand:</strong> ${productData.brand}</p>
+                    <p><strong>Category:</strong> ${productData.category}</p>
+                    <button class="btn primary" onclick="autoFillForm('${JSON.stringify(productData).replace(/"/g, '&quot;')}')">
+                        Auto-fill Form
+                    </button>
+                `;
+            }, 1500);
+        }
+
+        function autoFillForm(dataStr) {
+            const data = JSON.parse(dataStr.replace(/&quot;/g, '"'));
+            
+            document.getElementById('itemName').value = data.name;
+            document.getElementById('itemDescription').value = data.description;
+            document.getElementById('itemSku').value = data.sku;
+            document.getElementById('itemBrand').value = data.brand;
+            document.getElementById('itemCategory').value = data.category;
+            document.getElementById('itemQuantity').value = 1;
+            
+            openAddModal();
+            document.getElementById('scanResult').style.display = 'none';
+            document.getElementById('scanUrl').value = '';
+        }
+
+        // Form submission
+        document.getElementById('itemForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('itemName').value,
+                description: document.getElementById('itemDescription').value,
+                quantity: parseInt(document.getElementById('itemQuantity').value),
+                sku: document.getElementById('itemSku').value,
+                brand: document.getElementById('itemBrand').value,
+                category: document.getElementById('itemCategory').value,
+                status: document.getElementById('itemStatus').value,
+                lastUpdated: new Date().toISOString().split('T')[0]
+            };
+
+            if (editingItem) {
+                // Edit existing item
+                Object.assign(editingItem, formData);
+            } else {
+                // Add new item
+                formData.id = Date.now();
+                items.push(formData);
+            }
+
+            renderItems();
+            closeModal();
+        });
+
+        // Initial render
+        renderItems();
+    </script>
+</body>
+</html>
