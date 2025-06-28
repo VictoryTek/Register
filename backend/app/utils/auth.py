@@ -74,42 +74,27 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-    """Get current authenticated user"""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
-    token_data = verify_token(token, credentials_exception)
-    user = get_user_by_username(db, username=token_data.username)
-    if user is None:
-        raise credentials_exception
-    return user
+    """Bypass authentication: always return a dummy user."""
+    class DummyUser:
+        id = 1
+        username = "demo"
+        email = "demo@example.com"
+        full_name = "Demo User"
+        role = "admin"
+        is_active = True
+    return DummyUser()
 
 
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
-    """Get current active user"""
-    if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+    """Bypass active user check: always return dummy user."""
     return current_user
 
 
 def require_admin(current_user: User = Depends(get_current_active_user)) -> User:
-    """Require admin role"""
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
+    """Bypass admin check: always return dummy user."""
     return current_user
 
 
 def require_manager_or_admin(current_user: User = Depends(get_current_active_user)) -> User:
-    """Require manager or admin role"""
-    if current_user.role not in ["admin", "manager"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
+    """Bypass manager/admin check: always return dummy user."""
     return current_user
