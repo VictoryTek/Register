@@ -83,7 +83,7 @@ class Product(Base):
     category = relationship("Category", back_populates="products")
     supplier = relationship("Supplier", back_populates="products")
     created_by_user = relationship("User", back_populates="created_products")
-    inventory_items = relationship("Inventory", back_populates="product")
+    inventory_items = relationship("InventoryItem", back_populates="product")
     inventory_movements = relationship("InventoryMovement", back_populates="product")
 
 
@@ -98,13 +98,13 @@ class Location(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    inventory_items = relationship("Inventory", back_populates="location")
+    inventory_items = relationship("InventoryItem", back_populates="location")
 
 
-# Association table for many-to-many relationship between Inventory and Tag
+# Association table for many-to-many relationship between InventoryItem and Tag
 inventory_tags = Table(
     'inventory_tags', Base.metadata,
-    Column('inventory_id', Integer, ForeignKey('inventory.id'), primary_key=True),
+    Column('inventory_id', Integer, ForeignKey('inventory_items.id'), primary_key=True),
     Column('tag_id', Integer, ForeignKey('tags.id'), primary_key=True)
 )
 
@@ -118,16 +118,30 @@ class Tag(Base):
 
     # Relationships
     inventory_items = relationship(
-        "Inventory",
+        "InventoryItem",
         secondary=inventory_tags,
         back_populates="tags"
     )
 
 
-class Inventory(Base):
-    __tablename__ = "inventory"
+class InventoryGroup(Base):
+    __tablename__ = "inventories"
 
     id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    items = relationship("InventoryItem", back_populates="inventory_group", cascade="all, delete-orphan")
+
+
+class InventoryItem(Base):
+    __tablename__ = "inventory_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inventory_id = Column(Integer, ForeignKey("inventories.id"), nullable=False)
     name = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     category = Column(String(100), nullable=True)
@@ -137,6 +151,7 @@ class Inventory(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
+    inventory_group = relationship("InventoryGroup", back_populates="items")
     tags = relationship(
         "Tag",
         secondary=inventory_tags,

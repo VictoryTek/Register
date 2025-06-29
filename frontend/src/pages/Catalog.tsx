@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import {
   Box,
   Typography,
@@ -338,33 +339,25 @@ const Catalog: React.FC = () => {
   };  const getTypeColor = (inventory: Inventory) => {
     // Use the inventory's avatar color for the type chip
     return inventory.color || 'primary';
-  };  const handleCreateInventory = () => {
-    const newId = Math.max(...inventories.map((inv: Inventory) => inv.id)) + 1;
-    const inventory: Inventory = {
-      id: newId,
-      name: newInventory.name,
-      description: newInventory.description,
-      type: newInventory.type,
-      color: newInventory.color,
-      image: newInventory.image,
-      itemCount: 0,
-      totalValue: '$0',
-      status: 'Active',
-      lastUpdated: new Date().toISOString().split('T')[0],
-      customFields: [] // Start with no custom fields - user can add them
-    };
-    const updatedInventories = [...inventories, inventory];
-    setInventories(updatedInventories);
-    
+  };  const handleCreateInventory = async () => {
+    try {
+      const payload = {
+        name: newInventory.name,
+        description: newInventory.description,
+        type: newInventory.type,
+        color: newInventory.color,
+        image: newInventory.image,
+      };
+      const res = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/inventories`, payload);
+      setInventories([...inventories, res.data]);
+      setSnackbar({ open: true, message: 'Inventory created successfully!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to create inventory.', severity: 'error' });
+    }
     setNewInventory({ name: '', description: '', type: '', color: 'primary', image: null });
     setShowCustomTypeInput(false);
     setCustomTypeInput('');
     setOpenCreateDialog(false);
-    setSnackbar({
-      open: true,
-      message: 'Inventory created successfully!',
-      severity: 'success',
-    });
   };
 
   const handleViewInventory = (inventory: any) => {
@@ -381,52 +374,43 @@ const Catalog: React.FC = () => {
     });
     setOpenEditDialog(true);
   };
-  const handleSaveEdit = () => {
-    const updatedInventories = inventories.map((inv: Inventory) => 
-      inv.id === selectedInventory?.id 
-        ? {
-            ...inv,
-            name: editInventory.name,
-            description: editInventory.description,
-            type: editInventory.type,
-            color: editInventory.color,
-            image: editInventory.image,
-            lastUpdated: new Date().toISOString().split('T')[0],
-          }
-        : inv
-    );
-      setInventories(updatedInventories);
+  const handleSaveEdit = async () => {
+    if (!selectedInventory) return;
+    try {
+      const payload = {
+        name: editInventory.name,
+        description: editInventory.description,
+        type: editInventory.type,
+        color: editInventory.color,
+        image: editInventory.image,
+      };
+      const res = await axios.put(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/inventories/${selectedInventory.id}`, payload);
+      setInventories(inventories.map((inv: Inventory) => inv.id === selectedInventory.id ? res.data : inv));
+      setSnackbar({ open: true, message: 'Inventory updated successfully!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to update inventory.', severity: 'error' });
+    }
     setShowCustomTypeInput(false);
     setCustomTypeInput('');
     setOpenEditDialog(false);
     setSelectedInventory(null);
-    setSnackbar({
-      open: true,
-      message: 'Inventory updated successfully!',
-      severity: 'success',
-    });
   };
   const handleDeleteInventory = (inventory: Inventory) => {
     setSelectedInventory(inventory);
     setOpenDeleteDialog(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!selectedInventory) return;
-    
-    const updatedInventories = inventories.filter((inv: Inventory) => inv.id !== selectedInventory.id);
-    setInventories(updatedInventories);
-    
-    // Also remove the items for this inventory from localStorage
-    localStorage.removeItem(`inventory_items_${selectedInventory.id}`);
-    
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/inventories/${selectedInventory.id}`);
+      setInventories(inventories.filter((inv: Inventory) => inv.id !== selectedInventory.id));
+      setSnackbar({ open: true, message: 'Inventory deleted successfully!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to delete inventory.', severity: 'error' });
+    }
     setOpenDeleteDialog(false);
     setSelectedInventory(null);
-    setSnackbar({
-      open: true,
-      message: 'Inventory deleted successfully!',
-      severity: 'success',
-    });
   };
 
   const handleManageItems = (inventory: Inventory) => {

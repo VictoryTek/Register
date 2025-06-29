@@ -314,3 +314,61 @@ class MessageResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+# Inventory Group (container) schemas
+class InventoryGroupBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class InventoryGroupCreate(InventoryGroupBase):
+    pass
+
+
+class InventoryGroupUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class InventoryGroup(InventoryGroupBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    # Optionally include items: List[InventoryItem] = []
+    class Config:
+        from_attributes = True
+
+
+# Inventory Item schemas
+class InventoryItemBase(BaseModel):
+    inventory_id: int
+    name: str
+    description: Optional[str] = None
+    category: Optional[str] = None
+    quantity: int = Field(..., ge=0)
+    min_stock_level: int = Field(10, ge=0)
+    max_stock_level: int = Field(1000, ge=0)
+    tags: Optional[List[Tag]] = []
+
+
+class InventoryItemCreate(InventoryItemBase):
+    pass
+
+
+class InventoryItemUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    quantity: Optional[int] = Field(None, ge=0)
+    min_stock_level: Optional[int] = Field(None, ge=0)
+    max_stock_level: Optional[int] = Field(None, ge=0)
+    tags: Optional[List[Tag]] = []
+
+
+class InventoryItem(InventoryItemBase):
+    id: int
+    updated_at: Optional[datetime] = None
+    tags: Optional[List[Tag]] = []
+    class Config:
+        from_attributes = True

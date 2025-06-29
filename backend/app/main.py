@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database.base import create_tables
-from app.routers import auth, products, inventory
+from app.routers import auth, products, inventory, inventories
 
 # Create FastAPI app
 app = FastAPI(
@@ -38,6 +38,12 @@ app.include_router(
     inventory.router,
     prefix=f"{settings.API_V1_STR}/inventory",
     tags=["Inventory"]
+)
+
+app.include_router(
+    inventories.router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["Inventories"]
 )
 
 

@@ -1,132 +1,92 @@
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database.base import get_db
-from app.models.models import Inventory, User, Tag
-from app.schemas.schemas import Inventory as InventorySchema, InventoryCreate, InventoryUpdate, Tag as TagSchema
+from app.models.models import InventoryItem, Tag, InventoryGroup
+from app.schemas.schemas import InventoryItem, InventoryItemCreate, InventoryItemUpdate, Tag as TagSchema
 from app.utils.auth import get_current_active_user, require_manager_or_admin
 
-router = APIRouter()
+router = APIRouter(prefix="/inventories/{inventory_id}/items", tags=["inventory_items"])
 
-
-@router.get("", response_model=List[InventorySchema])
-def get_inventory(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    low_stock: Optional[bool] = Query(None),
+@router.get("", response_model=List[InventoryItem])
+def list_items(
+    inventory_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user=Depends(get_current_active_user)
 ):
-    """Get inventory items with optional filtering"""
-    query = db.query(Inventory)
-    
-    if low_stock:
-        query = query.filter(Inventory.quantity <= Inventory.min_stock_level)
-    
-    inventory_items = query.offset(skip).limit(limit).all()
-    return inventory_items
+    items = db.query(InventoryItem).filter(InventoryItem.inventory_id == inventory_id).all()
+    return items
 
-
-@router.post("", response_model=InventorySchema)
-def create_inventory_item(
-    inventory: InventoryCreate,
+@router.post("", response_model=InventoryItem)
+def create_item(
+    inventory_id: int,
+    item: InventoryItemCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_manager_or_admin)
+    current_user=Depends(require_manager_or_admin)
 ):
-    """Create a new inventory item with tags"""
     tags = []
-    if inventory.tags:
-        for tag_data in inventory.tags:
+    if item.tags:
+        for tag_data in item.tags:
             tag = db.query(Tag).filter(Tag.name == tag_data.name).first()
             if not tag:
                 tag = Tag(name=tag_data.name, description=tag_data.description)
                 db.add(tag)
                 db.flush()
             tags.append(tag)
-    db_inventory = Inventory(
-        name=inventory.name,
-        description=inventory.description,
-        category=inventory.category,
-        quantity=inventory.quantity,
-        min_stock_level=inventory.min_stock_level,
-        max_stock_level=inventory.max_stock_level,
+    db_item = InventoryItem(
+        inventory_id=inventory_id,
+        name=item.name,
+        description=item.description,
+        category=item.category,
+        quantity=item.quantity,
+        min_stock_level=item.min_stock_level,
+        max_stock_level=item.max_stock_level,
         tags=tags
     )
-    db.add(db_inventory)
+    db.add(db_item)
     db.commit()
-    db.refresh(db_inventory)
-    return db_inventory
+    db.refresh(db_item)
+    return db_item
 
-
-@router.get("/{inventory_id}", response_model=InventorySchema)
-def get_inventory_item(
+@router.get("/{item_id}", response_model=InventoryItem)
+def get_item(
     inventory_id: int,
+    item_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user=Depends(get_current_active_user)
 ):
-    """Get a specific inventory item by ID"""
-    inventory = db.query(Inventory).filter(Inventory.id == inventory_id).first()
-    if not inventory:
-        raise HTTPException(status_code=404, detail="Inventory item not found")
-    return inventory
+    item = db.query(InventoryItem).filter(InventoryItem.inventory_id == inventory_id, InventoryItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item
 
-
-@router.put("/{inventory_id}", response_model=InventorySchema)
-def update_inventory_item(
+@router.put("/{item_id}", response_model=InventoryItem)
+def update_item(
     inventory_id: int,
-    inventory_update: InventoryUpdate,
+    item_id: int,
+    item_update: InventoryItemUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_manager_or_admin)
+    current_user=Depends(require_manager_or_admin)
 ):
-    """Update an inventory item and its tags"""
-    inventory = db.query(Inventory).filter(Inventory.id == inventory_id).first()
-    if not inventory:
-        raise HTTPException(status_code=404, detail="Inventory item not found")
-    
-    update_data = inventory_update.dict(exclude_unset=True)
-    if "tags" in update_data:
-        tags = []
-        for tag_data in update_data["tags"]:
-            tag = db.query(Tag).filter(Tag.name == tag_data.name).first()
-            if not tag:
-                tag = Tag(name=tag_data.name, description=tag_data.description)
-                db.add(tag)
-                db.flush()
-            tags.append(tag)
-        inventory.tags = tags
-        del update_data["tags"]
-    
-    for field, value in update_data.items():
-        setattr(inventory, field, value)
-    
+    item = db.query(InventoryItem).filter(InventoryItem.inventory_id == inventory_id, InventoryItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    for k, v in item_update.dict(exclude_unset=True).items():
+        setattr(item, k, v)
     db.commit()
-    db.refresh(inventory)
-    return inventory
+    db.refresh(item)
+    return item
 
-
-@router.delete("/{inventory_id}")
-def delete_inventory_item(
+@router.delete("/{item_id}")
+def delete_item(
     inventory_id: int,
+    item_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_manager_or_admin)
+    current_user=Depends(require_manager_or_admin)
 ):
-    """Delete an inventory item"""
-    inventory = db.query(Inventory).filter(Inventory.id == inventory_id).first()
-    if not inventory:
-        raise HTTPException(status_code=404, detail="Inventory item not found")
-    
-    db.delete(inventory)
+    item = db.query(InventoryItem).filter(InventoryItem.inventory_id == inventory_id, InventoryItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    db.delete(item)
     db.commit()
-    return {"message": "Inventory item deleted successfully"}
-
-
-@router.get("/low-stock", response_model=List[InventorySchema])
-def get_low_stock_items(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    """Get items with low stock levels"""
-    low_stock_items = db.query(Inventory).filter(
-        Inventory.quantity <= Inventory.min_stock_level
-    ).all()
-    return low_stock_items
+    return {"detail": "Item deleted"}

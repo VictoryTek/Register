@@ -81,11 +81,13 @@ interface Inventory {
 }
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const INVENTORY_NAME = "My Inventory";
 
-const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ inventoryId: string }>();
+const Inventory: React.FC = () => {
+  const { inventoryId } = useParams<{ inventoryId: string }>();
   const navigate = useNavigate();
-  
-  const [inventoryName, setInventoryName] = useState<string>('');
+
+  const [inventoryName, setInventoryName] = useState<string>("");
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [openAddDialog, setOpenAddDialog] = useState(false);
@@ -118,27 +120,16 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
   
   // Load inventory data from localStorage
   useEffect(() => {
-    // Load inventories from localStorage to find the current one
-    const savedInventories = localStorage.getItem('inventories');
-    let inventories = [];
-    
-    if (savedInventories) {
-      try {
-        inventories = JSON.parse(savedInventories);
-      } catch (error) {
-        console.error('Error parsing saved inventories:', error);
-      }
-    }
-    
-    const foundInventory = inventories.find((inv: any) => inv.id === parseInt(inventoryId || '0'));
-    setInventoryName(foundInventory?.name || 'Unknown Inventory');
-    setCustomFields(foundInventory?.customFields || []);
-  }, [inventoryId]);  useEffect(() => {
-    // Fetch inventory items from backend
-    axios.get(`${API_BASE_URL}/api/v1/inventory`)
+    if (!inventoryId) return;
+    // Fetch inventory group name
+    axios.get(`${API_BASE_URL}/api/v1/inventories/${inventoryId}`)
+      .then(res => setInventoryName(res.data.name || 'Inventory'))
+      .catch(() => setInventoryName('Inventory'));
+    // Fetch items for this inventory group
+    axios.get(`${API_BASE_URL}/api/v1/inventories/${inventoryId}/items`)
       .then(res => setItems(res.data))
       .catch(() => setItems([]));
-  }, []);
+  }, [inventoryId]);
 
   const handleAddItem = async () => {
     try {
@@ -146,7 +137,7 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
         ...newItem,
         tags: newItem.tags?.map(tag => ({ name: tag })) || [],
       };
-      const res = await axios.post(`${API_BASE_URL}/api/v1/inventory`, payload);
+      const res = await axios.post(`${API_BASE_URL}/api/v1/inventories/${inventoryId}/items`, payload);
       setItems([...items, res.data]);
       setSnackbar({ open: true, message: 'Item added successfully!', severity: 'success' });
     } catch {
@@ -173,7 +164,7 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
         ...newItem,
         tags: newItem.tags?.map(tag => ({ name: tag })) || [],
       };
-      const res = await axios.put(`${API_BASE_URL}/api/v1/inventory/${selectedItem.id}`, payload);
+      const res = await axios.put(`${API_BASE_URL}/api/v1/inventories/${inventoryId}/items/${selectedItem.id}`, payload);
       setItems(items.map(item => item.id === selectedItem.id ? res.data : item));
       setSnackbar({ open: true, message: 'Item updated successfully!', severity: 'success' });
     } catch {
@@ -184,7 +175,7 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
     setOpenEditDialog(false);
   };const handleDeleteItem = async (itemId: number) => {
     try {
-      await axios.delete(`${API_BASE_URL}/api/v1/inventory/${itemId}`);
+      await axios.delete(`${API_BASE_URL}/api/v1/inventories/${inventoryId}/items/${itemId}`);
       setItems(items.filter(item => item.id !== itemId));
       setSnackbar({ open: true, message: 'Item deleted successfully!', severity: 'success' });
     } catch {
@@ -742,7 +733,7 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
           >
             Inventory Management
           </Link>
-          <Typography color="text.primary">{inventoryName}</Typography>
+          <Typography color="text.primary">{INVENTORY_NAME}</Typography>
         </Breadcrumbs>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <IconButton
@@ -753,7 +744,7 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
           </IconButton>
           <InventoryIcon sx={{ fontSize: 32, color: 'primary.main' }} />
           <Typography variant="h4" component="h1">
-            {inventoryName} - Items
+            {inventoryName ? inventoryName : "Loading..."}
           </Typography>        </Box>
       </Box>
 

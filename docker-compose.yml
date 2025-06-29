@@ -31,7 +31,7 @@ services:
       - DATABASE_URL=postgresql://register_user:register_password@db:5432/register_db
       - SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
       - ENVIRONMENT=development
-      - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
       db:
         condition: service_healthy
