@@ -52,7 +52,6 @@ interface Inventory {
   id: number;
   name: string;
   description: string;
-  location: string;
   type: string;
   color: string;
   image: string | null;
@@ -80,7 +79,6 @@ const Catalog: React.FC = () => {
   const [editInventory, setEditInventory] = useState({
     name: '',
     description: '',
-    location: '',
     type: '',
     color: 'primary',
     image: null as string | null,
@@ -89,7 +87,6 @@ const Catalog: React.FC = () => {
   const [newInventory, setNewInventory] = useState({
     name: '',
     description: '',
-    location: '',
     type: '',
     color: 'primary',
     image: null as string | null,
@@ -127,7 +124,6 @@ const Catalog: React.FC = () => {
       id: 1,
       name: 'Main Warehouse A',
       description: 'Primary storage facility for electronics and small items',
-      location: 'Building A, Floor 1',
       type: 'Warehouse',
       color: 'primary',
       image: null as string | null,
@@ -146,7 +142,6 @@ const Catalog: React.FC = () => {
       id: 2,
       name: 'Office Supplies Storage',
       description: 'Dedicated storage for office supplies and stationery',
-      location: 'Building B, Floor 2',
       type: 'Storage Room',
       color: 'secondary',
       image: null as string | null,
@@ -164,7 +159,6 @@ const Catalog: React.FC = () => {
       id: 3,
       name: 'IT Equipment Vault',
       description: 'Secure storage for computers, servers, and IT equipment',
-      location: 'Building A, Basement',
       type: 'Secure Vault',
       color: 'error',
       image: null as string | null,
@@ -183,7 +177,6 @@ const Catalog: React.FC = () => {
       id: 4,
       name: 'Temporary Storage',
       description: 'Temporary holding area for incoming and outgoing items',
-      location: 'Loading Dock',
       type: 'Temporary',
       color: 'warning',
       image: null as string | null,
@@ -351,7 +344,6 @@ const Catalog: React.FC = () => {
       id: newId,
       name: newInventory.name,
       description: newInventory.description,
-      location: newInventory.location,
       type: newInventory.type,
       color: newInventory.color,
       image: newInventory.image,
@@ -364,7 +356,7 @@ const Catalog: React.FC = () => {
     const updatedInventories = [...inventories, inventory];
     setInventories(updatedInventories);
     
-    setNewInventory({ name: '', description: '', location: '', type: '', color: 'primary', image: null });
+    setNewInventory({ name: '', description: '', type: '', color: 'primary', image: null });
     setShowCustomTypeInput(false);
     setCustomTypeInput('');
     setOpenCreateDialog(false);
@@ -383,7 +375,6 @@ const Catalog: React.FC = () => {
     setEditInventory({
       name: inventory.name,
       description: inventory.description,
-      location: inventory.location,
       type: inventory.type,
       color: inventory.color || 'primary',
       image: inventory.image || null,
@@ -397,7 +388,6 @@ const Catalog: React.FC = () => {
             ...inv,
             name: editInventory.name,
             description: editInventory.description,
-            location: editInventory.location,
             type: editInventory.type,
             color: editInventory.color,
             image: editInventory.image,
@@ -546,7 +536,7 @@ const Catalog: React.FC = () => {
                         {inventory.name.charAt(0)}
                       </Avatar>
                       <Typography variant="body2" color="text.secondary" align="center">
-                        {inventory.location}
+                        {inventory.name}
                       </Typography>
                     </>
                   )}
@@ -563,7 +553,7 @@ const Catalog: React.FC = () => {
                       }}
                     >
                       <Typography variant="body2" color="white" align="center">
-                        {inventory.location}
+                        {inventory.name}
                       </Typography>
                     </Box>
                   )}
@@ -580,9 +570,7 @@ const Catalog: React.FC = () => {
                 </Box>
 
                 <CardContent sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6" component="h2" gutterBottom>
-                    {inventory.name}
-                  </Typography>
+                  {/* Removed duplicate inventory name */}
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     {inventory.description}
                   </Typography>
@@ -707,9 +695,6 @@ const Catalog: React.FC = () => {
                           {inventory.description}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 3, mt: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            <strong>Location:</strong> {inventory.location}
-                          </Typography>
                           <Typography variant="body2" color="text.secondary">
                             <strong>Items:</strong> {inventory.itemCount}
                           </Typography>
@@ -855,18 +840,11 @@ const Catalog: React.FC = () => {
               multiline
               rows={3}
             />
-            <TextField
-              fullWidth
-              label="Location"
-              value={newInventory.location}
-              onChange={(e) => setNewInventory({ ...newInventory, location: e.target.value })}
-              margin="normal"
-              required
-            />            <FormControl fullWidth margin="normal" required>
-              <InputLabel>Inventory Type</InputLabel>
+            <FormControl fullWidth margin="normal" required>
+              <InputLabel>Category</InputLabel>
               <Select
                 value={newInventory.type}
-                label="Inventory Type"
+                label="Category"
                 onChange={(e) => {
                   if (e.target.value === 'custom') {
                     setShowCustomTypeInput(true);
@@ -1053,7 +1031,7 @@ const Catalog: React.FC = () => {
           <Button 
             onClick={handleCreateInventory}
             variant="contained"
-            disabled={!newInventory.name || !newInventory.location || !newInventory.type}
+            disabled={!newInventory.name || !newInventory.type}
           >
             Create Inventory
           </Button>
@@ -1080,15 +1058,7 @@ const Catalog: React.FC = () => {
               <Grid container spacing={2} sx={{ mt: 2 }}>
                 <Grid item xs={6}>
                   <Typography variant="subtitle2" color="text.secondary">
-                    Location
-                  </Typography>
-                  <Typography variant="body1">
-                    {selectedInventory.location}
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Type
+                    Category
                   </Typography>                  <Chip 
                     label={selectedInventory.type} 
                     color={getTypeColor(selectedInventory) as any}
@@ -1174,18 +1144,11 @@ const Catalog: React.FC = () => {
               multiline
               rows={3}
             />
-            <TextField
-              fullWidth
-              label="Location"
-              value={editInventory.location}
-              onChange={(e) => setEditInventory({ ...editInventory, location: e.target.value })}
-              margin="normal"
-              required
-            />            <FormControl fullWidth margin="normal" required>
-              <InputLabel>Inventory Type</InputLabel>
+            <FormControl fullWidth margin="normal" required>
+              <InputLabel>Category</InputLabel>
               <Select
                 value={editInventory.type}
-                label="Inventory Type"
+                label="Category"
                 onChange={(e) => {
                   if (e.target.value === 'custom') {
                     setShowCustomTypeInput(true);
@@ -1372,7 +1335,7 @@ const Catalog: React.FC = () => {
           <Button 
             onClick={handleSaveEdit}
             variant="contained"
-            disabled={!editInventory.name || !editInventory.location || !editInventory.type}
+            disabled={!editInventory.name || !editInventory.type}
           >
             Save Changes
           </Button>

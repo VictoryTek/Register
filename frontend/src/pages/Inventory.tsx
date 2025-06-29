@@ -54,12 +54,14 @@ import {
   Link as LinkIcon,
   ContentPaste as ContentPasteIcon,
 } from '@mui/icons-material';
+import axios from 'axios';
 
 interface InventoryItem {
   id: number;
   name: string;
   description: string;
   quantity: number;
+  tags?: string[]; // Add tags field
   customFields: { [key: string]: any };
   lastUpdated: string;
 }
@@ -78,6 +80,8 @@ interface Inventory {
   customFields?: CustomField[];
 }
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
 const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ inventoryId: string }>();
   const navigate = useNavigate();
   
@@ -86,20 +90,19 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
-  const [openFieldDialog, setOpenFieldDialog] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);  const [newItem, setNewItem] = useState({
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [newItem, setNewItem] = useState({
     name: '',
     description: '',
     quantity: 0,
+    tags: [] as string[],
     customFields: {} as { [key: string]: any },
-  });const [snackbar, setSnackbar] = useState({
+  });
+  const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success' as 'success' | 'error' | 'warning' | 'info',
   });
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  
-  // Field management state
   const [newField, setNewField] = useState<CustomField>({
     id: '',
     name: '',
@@ -109,11 +112,11 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
   });
   const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
   const [newOption, setNewOption] = useState('');
+  const [openFieldDialog, setOpenFieldDialog] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [newTagInput, setNewTagInput] = useState('');
   
-  // URL scanning state
-  const [scanUrl, setScanUrl] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
-  const [showUrlInput, setShowUrlInput] = useState(false);  // Load inventory data from localStorage
+  // Load inventory data from localStorage
   useEffect(() => {
     // Load inventories from localStorage to find the current one
     const savedInventories = localStorage.getItem('inventories');
@@ -130,121 +133,63 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
     const foundInventory = inventories.find((inv: any) => inv.id === parseInt(inventoryId || '0'));
     setInventoryName(foundInventory?.name || 'Unknown Inventory');
     setCustomFields(foundInventory?.customFields || []);
-    
-    // Load items for this inventory from localStorage
-    const savedItems = localStorage.getItem(`inventory_items_${inventoryId}`);
-    if (savedItems) {
-      try {
-        setItems(JSON.parse(savedItems));
-      } catch (error) {
-        console.error('Error parsing saved items:', error);
-        setItems([]);
-      }    } else {
-      // For existing default inventories, initialize with sample items
-      if (foundInventory && foundInventory.id <= 4) {
-        const mockItems: InventoryItem[] = [
-          {
-            id: 1,
-            name: 'Blue Pens',
-            description: 'Standard blue ballpoint pens',
-            quantity: 150,
-            customFields: {},
-            lastUpdated: '2024-01-15',
-          },
-          {
-            id: 2,
-            name: 'A4 Paper',
-            description: 'White A4 printer paper',
-            quantity: 25,
-            customFields: {},
-            lastUpdated: '2024-01-14',
-          },
-        ];
-        setItems(mockItems);
-        localStorage.setItem(`inventory_items_${inventoryId}`, JSON.stringify(mockItems));
-      } else {
-        setItems([]);
-      }
+  }, [inventoryId]);  useEffect(() => {
+    // Fetch inventory items from backend
+    axios.get(`${API_BASE_URL}/api/v1/inventory`)
+      .then(res => setItems(res.data))
+      .catch(() => setItems([]));
+  }, []);
+
+  const handleAddItem = async () => {
+    try {
+      const payload = {
+        ...newItem,
+        tags: newItem.tags?.map(tag => ({ name: tag })) || [],
+      };
+      const res = await axios.post(`${API_BASE_URL}/api/v1/inventory`, payload);
+      setItems([...items, res.data]);
+      setSnackbar({ open: true, message: 'Item added successfully!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to add item.', severity: 'error' });
     }
-  }, [inventoryId]);  const handleAddItem = () => {
-    const item: InventoryItem = {
-      id: Date.now(),
-      ...newItem,
-      lastUpdated: new Date().toISOString().split('T')[0],
-    };
-    
-    const updatedItems = [...items, item];
-    setItems(updatedItems);
-    // Save to localStorage
-    localStorage.setItem(`inventory_items_${inventoryId}`, JSON.stringify(updatedItems));
-    
-    setNewItem({
-      name: '',
-      description: '',
-      quantity: 0,
-      customFields: {},
-    });
+    setNewItem({ name: '', description: '', quantity: 0, tags: [], customFields: {} });
     setOpenAddDialog(false);
-    
-    // Reset URL scanning state
-    setShowUrlInput(false);
-    setScanUrl('');
-    
-    setSnackbar({
-      open: true,
-      message: 'Item added successfully!',
-      severity: 'success',
-    });
-  };const handleEditItem = (item: InventoryItem) => {
+  };
+
+  const handleEditItem = (item: InventoryItem) => {
     setSelectedItem(item);
     setNewItem({
       name: item.name,
       description: item.description,
       quantity: item.quantity,
+      tags: item.tags || [],
       customFields: item.customFields ? { ...item.customFields } : {},
     });
     setOpenEditDialog(true);
-  };  const handleUpdateItem = () => {
+  };  const handleUpdateItem = async () => {
     if (!selectedItem) return;
-    
-    const updatedItems = items.map(item =>
-      item.id === selectedItem.id
-        ? { ...selectedItem, ...newItem, lastUpdated: new Date().toISOString().split('T')[0] }
-        : item
-    );
-    
-    setItems(updatedItems);
-    // Save to localStorage
-    localStorage.setItem(`inventory_items_${inventoryId}`, JSON.stringify(updatedItems));
-      setSelectedItem(null);
-    setNewItem({
-      name: '',
-      description: '',
-      quantity: 0,
-      customFields: {},
-    });
+    try {
+      const payload = {
+        ...newItem,
+        tags: newItem.tags?.map(tag => ({ name: tag })) || [],
+      };
+      const res = await axios.put(`${API_BASE_URL}/api/v1/inventory/${selectedItem.id}`, payload);
+      setItems(items.map(item => item.id === selectedItem.id ? res.data : item));
+      setSnackbar({ open: true, message: 'Item updated successfully!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to update item.', severity: 'error' });
+    }
+    setSelectedItem(null);
+    setNewItem({ name: '', description: '', quantity: 0, tags: [], customFields: {} });
     setOpenEditDialog(false);
-    
-    // Reset URL scanning state
-    setShowUrlInput(false);
-    setScanUrl('');
-    
-    setSnackbar({
-      open: true,
-      message: 'Item updated successfully!',
-      severity: 'success',
-    });
-  };const handleDeleteItem = (itemId: number) => {
-    const updatedItems = items.filter(item => item.id !== itemId);
-    setItems(updatedItems);
-    // Save to localStorage
-    localStorage.setItem(`inventory_items_${inventoryId}`, JSON.stringify(updatedItems));
-    
-    setSnackbar({
-      open: true,
-      message: 'Item deleted successfully!',
-      severity: 'success',
-    });
+  };const handleDeleteItem = async (itemId: number) => {
+    try {
+      await axios.delete(`${API_BASE_URL}/api/v1/inventory/${itemId}`);
+      setItems(items.filter(item => item.id !== itemId));
+      setSnackbar({ open: true, message: 'Item deleted successfully!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to delete item.', severity: 'error' });
+    }
   };
   const handleQuantityChange = (itemId: number, change: number) => {
     const updatedItems = items.map(item => {
@@ -256,7 +201,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
     });
     
     setItems(updatedItems);
-    localStorage.setItem(`inventory_items_${inventoryId}`, JSON.stringify(updatedItems));
     
     setSnackbar({
       open: true,
@@ -264,60 +208,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       severity: 'success',
     });
   };
-  // URL scanning function
-  const handleScanUrl = async () => {
-    if (!scanUrl.trim()) return;
-    
-    setIsScanning(true);
-    
-    try {
-      // Extract product information from the URL
-      const rawProductInfo = await scanProductUrl(scanUrl.trim());
-      
-      if (rawProductInfo) {
-        // Intelligently map extracted data to custom fields
-        const mappedData = mapExtractedDataToFields(rawProductInfo, customFields);
-        
-        // Auto-fill the form with intelligently mapped data
-        setNewItem(prev => ({
-          ...prev,
-          name: mappedData.name || prev.name,
-          description: mappedData.description || prev.description,
-          customFields: {
-            ...prev.customFields,
-            ...mappedData.customFields,
-          },
-        }));
-        
-        // Show detailed mapping information
-        const mappingDetails = getMappingDetails(rawProductInfo, mappedData, customFields);
-        setSnackbar({
-          open: true,
-          message: `Product scanned! ${mappingDetails}`,
-          severity: 'success',
-        });
-        
-        setShowUrlInput(false);
-        setScanUrl('');
-      } else {
-        setSnackbar({
-          open: true,
-          message: 'Could not extract product information from this URL.',
-          severity: 'warning',
-        });
-      }
-    } catch (error) {
-      console.error('Error scanning URL:', error);
-      setSnackbar({
-        open: true,
-        message: 'Error scanning URL. Please check the URL and try again.',
-        severity: 'error',
-      });
-    }
-    
-    setIsScanning(false);
-  };
-
   // Intelligent field mapping function
   const mapExtractedDataToFields = (rawData: any, fields: CustomField[]) => {
     const mappedFields: { [key: string]: any } = {};
@@ -335,7 +225,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       warranty: ['warranty', 'guarantee', 'warranty_period'],
       condition: ['condition', 'state', 'quality'],
       status: ['status', 'availability', 'stock_status'],
-      location: ['location', 'warehouse', 'aisle', 'shelf', 'bin'],
       unit: ['unit', 'unit_of_measure', 'measurement_unit', 'packaging'],
       supplier: ['supplier', 'vendor', 'distributor', 'seller'],
       date_added: ['date_added', 'created_date', 'purchase_date'],
@@ -458,8 +347,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
           mappedFields[field.id] = field.options.includes('pieces') ? 'pieces' : field.options[0];
         } else if (field.id === 'status' && field.type === 'select' && field.options) {
           mappedFields[field.id] = field.options.find(opt => opt.toLowerCase().includes('stock')) || field.options[0];
-        } else if (field.id === 'location') {
-          mappedFields[field.id] = rawData.suggestedLocation || 'General Storage';
         }
       }
     });
@@ -517,7 +404,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       name: 'Echo Dot (5th Gen) Smart Speaker',
       description: 'Compact smart speaker with Alexa voice control, improved audio quality, and smart home hub capabilities.',
       generatedSku: 'AMZ-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-      suggestedLocation: 'Electronics Section',
       extractedData: {
         brand: 'Amazon',
         category: 'Electronics',
@@ -544,7 +430,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       name: 'Great Value Organic Whole Milk',
       description: 'Organic whole milk, 1 gallon. Rich, creamy taste from pasture-raised cows.',
       generatedSku: 'WMT-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-      suggestedLocation: 'Refrigerated Storage',
       extractedData: {
         brand: 'Great Value',
         category: 'Dairy',
@@ -568,7 +453,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       name: 'Goodfellow & Co. Men\'s Crew Neck T-Shirt',
       description: 'Classic fit crew neck t-shirt made from soft cotton blend. Perfect for everyday wear.',
       generatedSku: 'TGT-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-      suggestedLocation: 'Apparel Storage',
       extractedData: {
         brand: 'Goodfellow & Co.',
         category: 'Clothing',
@@ -592,7 +476,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       name: 'Apple iPhone 15 Pro 128GB',
       description: 'Latest iPhone with A17 Pro chip, titanium design, and advanced camera system.',
       generatedSku: 'BBY-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-      suggestedLocation: 'Secure Electronics Vault',
       extractedData: {
         brand: 'Apple',
         category: 'Smartphones',
@@ -619,7 +502,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       name: 'Generic Product Name',
       description: 'Product description extracted from webpage metadata and content.',
       generatedSku: 'GEN-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-      suggestedLocation: 'General Storage',
       extractedData: {
         brand: 'Unknown Brand',
         category: 'General',
@@ -862,7 +744,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
           </Link>
           <Typography color="text.primary">{inventoryName}</Typography>
         </Breadcrumbs>
-        
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <IconButton
             onClick={() => navigate('/catalog')}
@@ -919,7 +800,8 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
             Grid View
           </Button>
         </Box>
-      </Paper>      {/* Summary Stats */}
+      </Paper>
+      {/* Summary Stats */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={3}>
           <Paper sx={{ p: 2, textAlign: 'center' }}>
@@ -986,7 +868,8 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
             Grid View
           </Button>
         </Box>
-      </Paper>      {/* Items Display - List or Grid View */}
+      </Paper>
+      {/* Items Display - List or Grid View */}
       {viewMode === 'list' ? (
         /* List View */
         <Paper sx={{ mb: 3 }}>
@@ -1217,65 +1100,10 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
       )}      {/* Add Item Dialog */}
       <Dialog open={openAddDialog} onClose={() => {
         setOpenAddDialog(false);
-        setShowUrlInput(false);
-        setScanUrl('');
       }} maxWidth="sm" fullWidth>
         <DialogTitle>Add New Item</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            {/* URL Scanning Section */}
-            <Grid item xs={12}>
-              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <LinkIcon fontSize="small" />
-                  Auto-fill from Product URL
-                </Typography>
-                {!showUrlInput ? (
-                  <Button
-                    variant="outlined"
-                    startIcon={<ContentPasteIcon />}
-                    onClick={() => setShowUrlInput(true)}
-                    size="small"
-                  >
-                    Scan Product URL
-                  </Button>
-                ) : (
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Product URL"
-                      placeholder="https://www.amazon.com/product/..."
-                      value={scanUrl}
-                      onChange={(e) => setScanUrl(e.target.value)}
-                      disabled={isScanning}
-                    />
-                    <Button
-                      variant="contained"
-                      onClick={handleScanUrl}
-                      disabled={!scanUrl.trim() || isScanning}
-                      size="small"
-                    >
-                      {isScanning ? 'Scanning...' : 'Scan'}
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      onClick={() => {
-                        setShowUrlInput(false);
-                        setScanUrl('');
-                      }}
-                      size="small"
-                    >
-                      Cancel
-                    </Button>
-                  </Box>
-                )}
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Supports Amazon, Walmart, Target, Best Buy, and other retailers
-                </Typography>
-              </Box>
-            </Grid>
-            
             {/* Core fields */}
             <Grid item xs={12}>
               <TextField
@@ -1305,6 +1133,36 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
                 onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 0 })}
                 required
               />
+            </Grid>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                {newItem.tags.map((tag, idx) => (
+                  <Chip
+                    key={idx}
+                    label={tag}
+                    onDelete={() => setNewItem({ ...newItem, tags: newItem.tags.filter((_, i) => i !== idx) })}
+                    size="small"
+                    color="primary"
+                  />
+                ))}
+                <TextField
+                  variant="standard"
+                  label={newItem.tags.length === 0 ? 'Add tag' : ''}
+                  value={newTagInput}
+                  onChange={e => setNewTagInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newTagInput.trim()) {
+                      e.preventDefault();
+                      if (!newItem.tags.includes(newTagInput.trim())) {
+                        setNewItem({ ...newItem, tags: [...newItem.tags, newTagInput.trim()] });
+                      }
+                      setNewTagInput('');
+                    }
+                  }}
+                  sx={{ minWidth: 120, flex: 1 }}
+                  inputProps={{ maxLength: 32 }}
+                />
+              </Box>
             </Grid>
             
             {/* Dynamic custom fields */}
@@ -1325,73 +1183,16 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
         <DialogActions>
           <Button onClick={() => {
             setOpenAddDialog(false);
-            setShowUrlInput(false);
-            setScanUrl('');
           }}>Cancel</Button>
           <Button onClick={handleAddItem} variant="contained">Add Item</Button>
         </DialogActions>
       </Dialog>      {/* Edit Item Dialog */}
       <Dialog open={openEditDialog} onClose={() => {
         setOpenEditDialog(false);
-        setShowUrlInput(false);
-        setScanUrl('');
       }} maxWidth="sm" fullWidth>
         <DialogTitle>Edit Item</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            {/* URL Scanning Section */}
-            <Grid item xs={12}>
-              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <LinkIcon fontSize="small" />
-                  Update from Product URL
-                </Typography>
-                {!showUrlInput ? (
-                  <Button
-                    variant="outlined"
-                    startIcon={<ContentPasteIcon />}
-                    onClick={() => setShowUrlInput(true)}
-                    size="small"
-                  >
-                    Scan Product URL
-                  </Button>
-                ) : (
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Product URL"
-                      placeholder="https://www.amazon.com/product/..."
-                      value={scanUrl}
-                      onChange={(e) => setScanUrl(e.target.value)}
-                      disabled={isScanning}
-                    />
-                    <Button
-                      variant="contained"
-                      onClick={handleScanUrl}
-                      disabled={!scanUrl.trim() || isScanning}
-                      size="small"
-                    >
-                      {isScanning ? 'Scanning...' : 'Scan'}
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      onClick={() => {
-                        setShowUrlInput(false);
-                        setScanUrl('');
-                      }}
-                      size="small"
-                    >
-                      Cancel
-                    </Button>
-                  </Box>
-                )}
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Supports Amazon, Walmart, Target, Best Buy, and other retailers
-                </Typography>
-              </Box>
-            </Grid>
-            
             {/* Core fields */}
             <Grid item xs={12}>
               <TextField
@@ -1422,6 +1223,36 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
                 required
               />
             </Grid>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                {newItem.tags.map((tag, idx) => (
+                  <Chip
+                    key={idx}
+                    label={tag}
+                    onDelete={() => setNewItem({ ...newItem, tags: newItem.tags.filter((_, i) => i !== idx) })}
+                    size="small"
+                    color="primary"
+                  />
+                ))}
+                <TextField
+                  variant="standard"
+                  label={newItem.tags.length === 0 ? 'Add tag' : ''}
+                  value={newTagInput}
+                  onChange={e => setNewTagInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newTagInput.trim()) {
+                      e.preventDefault();
+                      if (!newItem.tags.includes(newTagInput.trim())) {
+                        setNewItem({ ...newItem, tags: [...newItem.tags, newTagInput.trim()] });
+                      }
+                      setNewTagInput('');
+                    }
+                  }}
+                  sx={{ minWidth: 120, flex: 1 }}
+                  inputProps={{ maxLength: 32 }}
+                />
+              </Box>
+            </Grid>
             
             {/* Dynamic custom fields */}
             {customFields.map((field) => (
@@ -1441,8 +1272,6 @@ const Inventory: React.FC = () => {  const { inventoryId } = useParams<{ invento
         <DialogActions>
           <Button onClick={() => {
             setOpenEditDialog(false);
-            setShowUrlInput(false);
-            setScanUrl('');
           }}>Cancel</Button>
           <Button onClick={handleUpdateItem} variant="contained">Update Item</Button>
         </DialogActions>

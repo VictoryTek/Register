@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum, Numeric
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum, Numeric, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.base import Base
@@ -101,20 +101,47 @@ class Location(Base):
     inventory_items = relationship("Inventory", back_populates="location")
 
 
+# Association table for many-to-many relationship between Inventory and Tag
+inventory_tags = Table(
+    'inventory_tags', Base.metadata,
+    Column('inventory_id', Integer, ForeignKey('inventory.id'), primary_key=True),
+    Column('tag_id', Integer, ForeignKey('tags.id'), primary_key=True)
+)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+
+    # Relationships
+    inventory_items = relationship(
+        "Inventory",
+        secondary=inventory_tags,
+        back_populates="tags"
+    )
+
+
 class Inventory(Base):
     __tablename__ = "inventory"
 
     id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    category = Column(String(100), nullable=True)
     quantity = Column(Integer, default=0, nullable=False)
     min_stock_level = Column(Integer, default=10)
     max_stock_level = Column(Integer, default=1000)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    product = relationship("Product", back_populates="inventory_items")
-    location = relationship("Location", back_populates="inventory_items")
+    tags = relationship(
+        "Tag",
+        secondary=inventory_tags,
+        back_populates="inventory_items"
+    )
 
 
 class MovementType(str, enum.Enum):

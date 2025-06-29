@@ -2,8 +2,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database.base import get_db
-from app.models.models import Inventory, Product, Location, User
-from app.schemas.schemas import Inventory as InventorySchema, InventoryCreate, InventoryUpdate
+from app.models.models import Inventory, User, Tag
+from app.schemas.schemas import Inventory as InventorySchema, InventoryCreate, InventoryUpdate, Tag as TagSchema
 from app.utils.auth import get_current_active_user, require_manager_or_admin
 
 router = APIRouter()
@@ -13,20 +13,12 @@ router = APIRouter()
 def get_inventory(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    product_id: Optional[int] = Query(None),
-    location_id: Optional[int] = Query(None),
     low_stock: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """Get inventory items with optional filtering"""
     query = db.query(Inventory)
-    
-    if product_id is not None:
-        query = query.filter(Inventory.product_id == product_id)
-    
-    if location_id is not None:
-        query = query.filter(Inventory.location_id == location_id)
     
     if low_stock:
         query = query.filter(Inventory.quantity <= Inventory.min_stock_level)
@@ -41,30 +33,25 @@ def create_inventory_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_manager_or_admin)
 ):
-    """Create a new inventory item"""
-    # Check if product exists
-    product = db.query(Product).filter(Product.id == inventory.product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    
-    # Check if location exists
-    location = db.query(Location).filter(Location.id == inventory.location_id).first()
-    if not location:
-        raise HTTPException(status_code=404, detail="Location not found")
-    
-    # Check if inventory item already exists for this product-location combination
-    existing = db.query(Inventory).filter(
-        Inventory.product_id == inventory.product_id,
-        Inventory.location_id == inventory.location_id
-    ).first()
-    
-    if existing:
-        raise HTTPException(
-            status_code=400, 
-            detail="Inventory item already exists for this product-location combination"
-        )
-    
-    db_inventory = Inventory(**inventory.dict())
+    """Create a new inventory item with tags"""
+    tags = []
+    if inventory.tags:
+        for tag_data in inventory.tags:
+            tag = db.query(Tag).filter(Tag.name == tag_data.name).first()
+            if not tag:
+                tag = Tag(name=tag_data.name, description=tag_data.description)
+                db.add(tag)
+                db.flush()
+            tags.append(tag)
+    db_inventory = Inventory(
+        name=inventory.name,
+        description=inventory.description,
+        category=inventory.category,
+        quantity=inventory.quantity,
+        min_stock_level=inventory.min_stock_level,
+        max_stock_level=inventory.max_stock_level,
+        tags=tags
+    )
     db.add(db_inventory)
     db.commit()
     db.refresh(db_inventory)
@@ -91,12 +78,24 @@ def update_inventory_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_manager_or_admin)
 ):
-    """Update an inventory item"""
+    """Update an inventory item and its tags"""
     inventory = db.query(Inventory).filter(Inventory.id == inventory_id).first()
     if not inventory:
         raise HTTPException(status_code=404, detail="Inventory item not found")
     
     update_data = inventory_update.dict(exclude_unset=True)
+    if "tags" in update_data:
+        tags = []
+        for tag_data in update_data["tags"]:
+            tag = db.query(Tag).filter(Tag.name == tag_data.name).first()
+            if not tag:
+                tag = Tag(name=tag_data.name, description=tag_data.description)
+                db.add(tag)
+                db.flush()
+            tags.append(tag)
+        inventory.tags = tags
+        del update_data["tags"]
+    
     for field, value in update_data.items():
         setattr(inventory, field, value)
     

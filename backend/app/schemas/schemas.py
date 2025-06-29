@@ -170,13 +170,32 @@ class Location(LocationBase):
         from_attributes = True
 
 
+# Tag schemas
+class TagBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class TagCreate(TagBase):
+    pass
+
+
+class Tag(TagBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
 # Inventory schemas
 class InventoryBase(BaseModel):
-    product_id: int
-    location_id: int
+    name: str
+    description: Optional[str] = None
+    category: Optional[str] = None
     quantity: int = Field(..., ge=0)
     min_stock_level: int = Field(10, ge=0)
     max_stock_level: int = Field(1000, ge=0)
+    tags: Optional[List[Tag]] = []
 
 
 class InventoryCreate(InventoryBase):
@@ -184,16 +203,19 @@ class InventoryCreate(InventoryBase):
 
 
 class InventoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
     quantity: Optional[int] = Field(None, ge=0)
     min_stock_level: Optional[int] = Field(None, ge=0)
     max_stock_level: Optional[int] = Field(None, ge=0)
+    tags: Optional[List[Tag]] = []
 
 
 class Inventory(InventoryBase):
     id: int
     updated_at: Optional[datetime] = None
-    product: Optional[Product] = None
-    location: Optional[Location] = None
+    tags: Optional[List[Tag]] = []
 
     class Config:
         from_attributes = True
